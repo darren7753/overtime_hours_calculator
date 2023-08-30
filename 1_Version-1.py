@@ -56,9 +56,10 @@ if file is not None:
     days_off_columns = st.multiselect(
         "Select Days Off",
         df_ver_1.columns[1:],
+        # [1, 2, 8, 9, 15, 16, 19, 22, 23, 29, 30]
     )
 
-    # Calculate Overtime
+    # Calculate Ovesrtime
     def calculate_overtime(time_str, is_day_off=False):
         # If NaN or None
         if not time_str or pd.isnull(time_str):
@@ -81,13 +82,15 @@ if file is not None:
             # Calculate adjusted end time by adding late_minutes to 17:00
             actual_end_time = (datetime.combine(datetime.today(), datetime.strptime("17:00:00", "%H:%M:%S").time()) + timedelta(minutes=late_minutes)).time()
 
-            # Calculate overtime
-            if end_time > actual_end_time:
-                overtime_minutes = (datetime.combine(datetime.today(), end_time) - datetime.combine(datetime.today(), actual_end_time)).seconds / 60
-                overtime_hours = max(0, overtime_minutes // 60)
-            else:
-                overtime_hours = 0
+            # Check the total time worked
+            total_work_seconds = (datetime.combine(datetime.today(), end_time) - datetime.combine(datetime.today(), start_time)).total_seconds()
+            if total_work_seconds <= late_minutes * 60:  # Convert late minutes to seconds
+                return 0
 
+            # Adjusted overtime calculation
+            overtime_minutes = (datetime.combine(datetime.today(), min(end_time, datetime.strptime("20:00:00", "%H:%M:%S").time())) - datetime.combine(datetime.today(), actual_end_time)).seconds / 60 - late_minutes
+            overtime_hours = overtime_minutes / 60
+            
             # Cap at 3 hours
             return min(3, overtime_hours)
 
@@ -119,7 +122,8 @@ if file is not None:
         st.markdown(f"<h3>Calculate Overtime</h3>", unsafe_allow_html=True)
 
         with st.expander("Click here to view the data overview"):
-            overtime_df_ver_1.iloc[:, 1:] = overtime_df_ver_1.iloc[:, 1:].astype(int)
+            for col in overtime_df_ver_1.columns[1:]:
+                overtime_df_ver_1[col] = overtime_df_ver_1[col].astype(int)
             overtime_df_ver_1.index += 1
             st.dataframe(overtime_df_ver_1)
 
